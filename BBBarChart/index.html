@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<svg width= "1200" height="500"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+
+<style>
+
+.axis .domain {
+  display: none;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+</style>
+<div id="filters">
+<select id="myselectform">
+<option value="W">Wins</option>
+<option value="avgORtg">Offense</option>
+<option value="avgDRtg">Defense</option>
+<option value="Pace">Pace</option>
+</select>
+</div>
+<script>
+
+document.getElementById("myselectform").onchange = function() {
+	updateChart(this.value);
+};
+
+var svg = d3.select("svg"),
+    margin = {top: 20, right: 20, bottom: 30, left: 40},
+    width = +svg.attr("width") - margin.left - margin.right,
+    height = +svg.attr("height") - margin.top - margin.bottom,
+    g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+var valuesMap = {};
+var winProperty = {};
+var key;
+var prop = 'W';
+
+var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+ d3.csv("basketball.csv", function(d, i, columns) {
+    	d.Season = new Date(+d.Season.split('-')[0], 0, 1, 0);
+		d.W = +d.W;
+		d.L = +d.L;
+		d.ORtg = +d.ORtg;
+		d.DRtg = +d.DRtg;
+		d.Pace= +d.Pace;
+
+  		return d;
+}, function(error, data) {
+  	if (error) throw error;
+
+	var totalWins = d3.nest()
+		.key(function(d) { return d.Team;})
+		.rollup(function (d) { 
+			return {
+				avg: d3.mean(d, function(d) {
+					return d[prop];
+				}),
+				avgORtg: d3.mean(d, function(d) {
+					return d.ORtg;
+					}),
+				avgDRtg: d3.mean(d, function(d) {
+					return d.DRtg;
+					})
+			};
+			
+		})
+		.entries(data);
+
+		console.log(totalWins)
+  		window.totalWins = totalWins;
+
+	for (i = 0; i < totalWins.length; i++) {
+		key = totalWins[i].key;
+		avgValue = totalWins[i].value.avg;
+		avgTeamLoss = totalWins[i].value.avgORtg;
+		valuesMap[key] = avgValue;
+	}
+
+	// var x = d3.scaleBand()
+	// 	.domain(Object.keys(valuesMap))
+	// 	.range([0, width]);
+
+	// var y = d3.scaleLinear()
+	// 	.domain([0, d3.max(totalWins, function(d) {
+	// 		return d.value.avg;
+	// 	})])
+	// 	.rangeRound([height, 0]);
+
+	
+
+	updateChart();
+
+	function updateChart() {
+		//var k, v;
+		
+
+		// for (k in valuesMap) {
+		// 	//console.log(valuesMap)
+		// 	v = valuesMap[k];
+		// 	//console.log(v)
+		// 	//console.log('x:', x(k))
+		// 	g.append("rect")
+		//       .attr("class", "bar")
+		//       .attr("x", x(k))
+		//       .attr("y", y(v))
+		//       .attr("width", x.bandwidth())
+		//       .attr("height", height - y(v))
+		//       .attr("fill", function() { return color(k);});
+		// }
+	}	
+
+});
+ function updateChart(viewProperty) {
+		var prop = viewProperty;
+		console.log(prop)
+		
+		var i, key, data;
+
+		for (i = 0; i < window.totalWins.length; i++) {
+			key = window.totalWins[i].key;
+			console.log(totalWins[i].value[prop])
+			data = window.totalWins[i].value[prop];
+			valuesMap[key] = data;
+			console.log(valuesMap)
+
+		}	
+
+			x = d3.scaleBand()
+				.domain(Object.keys(valuesMap))
+				.range([0, width]);
+
+			 y = d3.scaleLinear()
+				.domain([0, d3.max(window.totalWins, function(d) {
+					return d.value[prop];
+				})])
+				.rangeRound([height, 0]);
+
+			g.append("g")
+	 	  	 .attr("transform", "translate(0," + height + ")")
+	  		 .call(d3.axisBottom(x));
+
+			g.append("g")
+	    	.call(d3.axisLeft(y));
+
+
+				for (var k in valuesMap) {
+				v = valuesMap[k];
+				g.append("rect")
+		    	 .attr("class", "bar")
+		     	 .attr("x", x(k))
+		     	 .attr("y", y(v))
+		     	 .attr("width", x.bandwidth())
+		    	 .attr("height", height - y(v))
+		     	 .attr("fill", function() { return color(k);});
+		}
+
+		
+	}
+
+
+	
+</script>

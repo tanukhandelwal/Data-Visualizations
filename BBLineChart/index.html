@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<svg width= "960" height="500"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="d3.legend.js"></script>
+<style>
+
+div.tooltip {	
+    position: absolute;			
+    text-align: center;			
+    width: 65px;									
+    padding: 2px;				
+    font: 12px sans-serif;		
+    background: lightsteelblue;	
+    border: 0px;		
+    border-radius: 8px;			
+    pointer-events: none;			
+}	
+
+.legend rect {
+  fill:white;
+  stroke:black;
+  opacity:0.8;}
+
+</style>
+
+<div id="filters">
+<select id="myselectform">
+<option value="W">Wins</option>
+<option value="ORtg">Offense</option>
+<option value="DRtg">Defense</option>
+<option value="Pace">Pace</option>
+</select>
+</div>
+<br>
+
+
+
+<script>
+
+var x, y, prop = 'W';
+var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+document.getElementById("myselectform").onchange = function() {
+	filterType(this.value);
+};
+
+function createChart(data, key) {
+	g.append("g")
+	.attr("transform", "translate (0," + height +")")
+	.call(d3.axisBottom(x))
+	.select(".domain")
+	.remove();
+
+	g.append("g")
+		.call(d3.axisLeft(y))
+		.append("text")
+		.attr("fill", "#000")
+		.attr("transform", "rotate(-90)")
+		.attr("y", 6)
+		.attr("dy", "0.71em")
+		.attr("text-anchor", "end");
+
+	g.append("path")
+		.datum(data)
+		.attr("fill", "none")
+		.attr("data-team", key)
+		.attr("data-legend", key)
+		.style("stroke", function() {
+			return color(key);
+		})
+		.attr("stroke-linejoin", "round")
+		.attr("stroke-linecap", "round")
+		.attr("stroke-width", 1.5)
+		.attr("d", line);
+
+	//Add a scatterplot over the line chart 
+	g.selectAll("dot")
+		.data(data)
+		.enter().append("circle")
+		.attr("r", 2)
+		.attr("data-team", key)
+		.attr("cx", function(d) { 
+			return x(d.Season); })
+		.attr("cy", function(d) { return y(d[prop]); })
+		.attr("fill", function() {
+			return color(key);
+		})
+		.on("mouseover", function(d) {
+			div.transition()
+				.duration(200)
+				.style("opacity", .9);
+			div.html("<p>" + d.Team + "<br/>" + d[prop] + "<br/>" +
+					 d.Season.getFullYear() + "</p>")
+				.style("left", (d3.event.pageX) + "px")
+				.style("top", (d3.event.pageY -28) + "px");
+		})
+		.on("mouseout", function(d) {
+			div.transition()
+				.duration(500)
+				.style("opacity",0);
+		});
+}
+
+
+var svg = d3.select("svg"),
+	margin = {top:20, right:20, bottom:30, left:50},
+	width = +svg.attr("width") - margin.left - margin.right,
+	height = +svg.attr("height") - margin.top - margin.bottom,
+	g = svg.append("g").attr("transform", "translate (" +margin.left + "," +
+			margin.top + ")");
+
+var line = d3.line()
+			.x(function(d) { 
+				return x(d.Season);
+			})
+			.y(function(d) { return y(d[prop]);});
+
+var div = d3.select("body").append("div")	
+    .attr("class", "tooltip")				
+    .style("opacity", 0);
+
+
+
+	d3.csv("basketball.csv", function(d) {
+		d.Season = new Date(+d.Season.split('-')[0], 0, 1, 0);
+		d.W = +d.W;
+		d.L = +d.L;
+		d.ORtg = +d.ORtg;
+		d.DRtg = +d.DRtg;
+		d.Pace= +d.Pace;
+		return d;
+	}, function (error, data) {
+		if(error) throw error;
+		var i, key;
+
+		x = d3.scaleTime()
+			.domain(d3.extent(data, function(d) {
+				return d.Season
+			}))
+			.rangeRound([0, width]);
+
+		y = d3.scaleLinear()
+			.domain([0, d3.max(data, function(d) {
+				return d[prop]
+			})])
+			.rangeRound([height, 0]);
+
+		var nest = d3.nest()
+			.key(function(d) {
+				return d.Team;
+			})
+			.entries(data);
+
+		for (i = 0; i < nest.length; i++) {
+			key = nest[i].key;
+			createChart(nest[i].values, key)
+		}
+		window.nest = nest;
+		console.log(nest)
+
+	var legend = svg.append("g")
+	    .attr("class","legend")
+	    .attr("transform","translate(50,30)")
+	    .style("font-size","12px")
+	    .call(d3.legend)   	 
+	});
+
+	function filterType(gameFilter) {
+		prop = gameFilter;
+		var i, key, data;
+
+		for (i = 0; i < window.nest.length; i++) {
+			key = window.nest[i].key;
+			data = window.nest[i].values;
+			y = d3.scaleLinear()
+				.domain([0, d3.max(data, function(d) {
+					return d[prop]
+				})])
+				.rangeRound([height, 0]);
+			g.selectAll("circle[data-team=" + key + "]")
+				.data(data)
+				.attr("cx", function(d) {
+					return x(d.Season);
+				})
+				.attr("cy", function(d) {
+					// console.log('using ', prop, y(d[prop]))
+					return y(d[prop]);
+				});
+			g.selectAll("path[data-team=" + key + "]")
+				.datum(data)
+				.attr("d", line);
+		}
+
+			
+	}
+			
+
+</script>
